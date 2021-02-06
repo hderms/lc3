@@ -1,6 +1,7 @@
 const MEMORY_SIZE: usize = u16::MAX as usize;
-use crate::registers::{RegisterName, Registers};
 use crate::opcodes::OpCodes;
+use crate::registers::{RegisterName, Registers};
+use crate::util;
 pub struct Machine {
     memory: [u16; MEMORY_SIZE],
     registers: Registers,
@@ -54,39 +55,55 @@ impl Machine {
 
         let op2 = if mode == 1 {
             //immediate mode
-            let immediate = instruction & 0b1111;
+            let immediate = util::sign_extend(instruction & 0b11111, 5);
             immediate as u16
         } else {
             let sr2 = instruction & 0b111;
             self.registers.get_by_address(sr2)
         };
-        let result = (op1 + op2) as u16;
+        let result = (op1.wrapping_add(op2)) as u16;
         self.registers = self.registers.update_by_address(dr, result);
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::registers::RegisterName;
-    use crate::instruction_builder::{add, increment};
     use super::*;
+    use crate::instruction_builder::{add, add_immediate, decrement, increment};
+    use crate::registers::RegisterName;
     #[test]
-    fn it_can_add() {
+    fn it_can_add_in_immediate_mode() {
+        let mut machine = Machine::empty().start();
+        let increment_r1 = increment(RegisterName::R1);
+        let decrement_r1 = decrement(RegisterName::R1);
+        machine.add(increment_r1);
+        machine.add(increment_r1);
+        machine.add(increment_r1);
+        machine.add(decrement_r1);
+        assert_eq!(machine.registers.get_by_name(RegisterName::R1), 2);
+    }
+
+    #[test]
+    fn it_can_represent_adding_twos_complement_resulting_in_overflow() {
+        let mut machine = Machine::empty().start();
+        let decrement_r1 = decrement(RegisterName::R1);
+        machine.add(decrement_r1);
+        machine.add(decrement_r1);
+        assert_eq!(machine.registers.get_by_name(RegisterName::R1) as i16, -2);
+    }
+
+    #[test]
+    fn it_can_add_in_register_mode() {
         let mut machine = Machine::empty().start();
         let increment_r1 = increment(RegisterName::R1);
         let increment_r2 = increment(RegisterName::R2);
         machine.add(increment_r1);
         machine.add(increment_r1);
         machine.add(increment_r1);
-        println!("{:?}", machine.registers);
-        assert_eq!(machine.registers.get_by_name(RegisterName::R1), 3);
-
-        let add_r1_r2_place_in_r3 =
-            add(RegisterName::R1, RegisterName::R2, RegisterName::R3);
         machine.add(increment_r2);
+        machine.add(increment_r2);
+
+        let add_r1_r2_place_in_r3 = add(RegisterName::R1, RegisterName::R2, RegisterName::R3);
         machine.add(add_r1_r2_place_in_r3);
-        println!("{:?}", machine.registers);
-        assert_eq!(machine.registers.get_by_name(RegisterName::R3), 4);
-
+        assert_eq!(machine.registers.get_by_name(RegisterName::R3), 5);
     }
-
 }
