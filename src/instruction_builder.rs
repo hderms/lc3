@@ -1,5 +1,4 @@
-mod registers;
-use registers::RegisterName;
+use crate::registers::RegisterName;
     pub fn increment(register: RegisterName) -> u16 {
         let r_value = register as u16;
         (1 << 12) | ((r_value) << 9) | ((r_value) << 6) | 1 << 5 | 1

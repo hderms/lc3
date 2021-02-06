@@ -1,10 +1,6 @@
 const MEMORY_SIZE: usize = u16::MAX as usize;
-mod registers;
-mod opcodes;
-mod instruction_builder;
-use registers::{RegisterName, Registers};
-use opcodes::OpCodes;
-use instruction_builder::{add, increment};
+use crate::registers::{RegisterName, Registers};
+use crate::opcodes::OpCodes;
 pub struct Machine {
     memory: [u16; MEMORY_SIZE],
     registers: Registers,
@@ -70,23 +66,26 @@ impl Machine {
 }
 #[cfg(test)]
 mod tests {
+    use crate::registers::RegisterName;
+    use crate::instruction_builder::{add, increment};
+    use super::*;
     #[test]
     fn it_can_add() {
-    let mut machine = Machine::empty().start();
-    let increment_r1 = increment(RegisterName::R1);
-    let increment_r2 = increment(RegisterName::R2);
-    machine.add(increment_r1);
-    machine.add(increment_r1);
-    machine.add(increment_r1);
-    println!("{:?}", machine.registers);
-    assert_eq!(machine.registers.get_by_name(RegisterName::R1), 3);
+        let mut machine = Machine::empty().start();
+        let increment_r1 = increment(RegisterName::R1);
+        let increment_r2 = increment(RegisterName::R2);
+        machine.add(increment_r1);
+        machine.add(increment_r1);
+        machine.add(increment_r1);
+        println!("{:?}", machine.registers);
+        assert_eq!(machine.registers.get_by_name(RegisterName::R1), 3);
 
-    let add_r1_r2_place_in_r3 =
-        add(RegisterName::R1, RegisterName::R2, RegisterName::R3);
-    machine.add(increment_r2);
-    machine.add(add_r1_r2_place_in_r3);
-    println!("{:?}", machine.registers);
-    assert_eq!(machine.registers.get_by_name(RegisterName::R3), 4);
+        let add_r1_r2_place_in_r3 =
+            add(RegisterName::R1, RegisterName::R2, RegisterName::R3);
+        machine.add(increment_r2);
+        machine.add(add_r1_r2_place_in_r3);
+        println!("{:?}", machine.registers);
+        assert_eq!(machine.registers.get_by_name(RegisterName::R3), 4);
 
     }
 
