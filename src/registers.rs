@@ -99,6 +99,10 @@ impl Registers {
         };
         flag as u16
     }
+
+    pub fn increment_pc(&mut self)  {
+        self.pc += 1;
+    }
 }
 
 enum ConditionFlags {

@@ -23,6 +23,7 @@ impl Machine {
     }
     fn step(&mut self) {
         let next_instruction = self.memory[self.registers.get_by_name(RegisterName::Pc) as usize];
+        self.registers.increment_pc();
         let opcode: u16 = next_instruction >> 12;
         let maybe_opcode: Option<OpCodes> = num::FromPrimitive::from_u16(opcode);
         match maybe_opcode {
