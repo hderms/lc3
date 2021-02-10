@@ -1,5 +1,5 @@
 #[derive(FromPrimitive)]
-pub enum OpCodes {
+pub enum Opcodes {
     Branch = 0,
     Add = 1,
     Load = 2,
