@@ -17,7 +17,7 @@ impl Machine {
     }
 
     pub fn start(mut self) -> Machine {
-        self.registers.update_by_name(RegisterName::Pc, 0x300);
+        self.registers.set_pc(0x300);
         self.running = true;
         self
     }
@@ -31,7 +31,7 @@ impl Machine {
             Some(Opcodes::Add) => self.add(next_instruction),
             Some(Opcodes::Load )=> self.load(next_instruction),
             Some(Opcodes::Store )=> self.store(next_instruction),
-            //  Some(Opcodes::JumpRegister )=> self.jump_register(next_instruction),
+            Some(Opcodes::JumpRegister )=> self.jump_register(next_instruction),
             Some(Opcodes::And )=> self.and(next_instruction),
             // Some(Opcodes::loadregister )=> instruction::load_register(),
             // Some(Opcodes::storeregister )=> instruction::store_register(),
@@ -82,7 +82,7 @@ impl Machine {
         let dr = (instruction >> 9) & 0b111;
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
-        let pointer = self.registers.get_by_name(RegisterName::Pc) + sign_extended_pc_offset;
+        let pointer = self.registers.get_pc() + sign_extended_pc_offset;
         let address = self.memory[pointer as usize]; 
         let final_address = self.memory[address as usize];
         self.registers = self.registers.update_by_address(dr, final_address);
@@ -93,7 +93,7 @@ impl Machine {
         let dr = (instruction >> 9) & 0b111;
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
-        let pointer = self.registers.get_by_name(RegisterName::Pc) + sign_extended_pc_offset;
+        let pointer = self.registers.get_pc() + sign_extended_pc_offset;
         let address = self.memory[pointer as usize]; 
         self.registers = self.registers.update_by_address(dr, address);
         
@@ -107,6 +107,18 @@ impl Machine {
         let register_value = self.registers.get_by_address(sr);
         self.memory[pointer as usize] = register_value; 
         
+    }
+
+    fn jump_register(&mut self, instruction: u16) {
+        let mode = instruction >> 11;
+        self.registers.update_by_name(RegisterName::R7, self.registers.get_pc());
+        let address = if mode == 1 {
+             util::sign_extend(instruction & 0x7FF, 10)
+        } else {
+             let register = (instruction >> 6)  & 0b111;
+             self.registers.get_by_address(register)
+        };
+        self.registers.set_pc(address);
     }
 }
 #[cfg(test)]

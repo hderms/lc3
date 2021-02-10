@@ -103,6 +103,14 @@ impl Registers {
     pub fn increment_pc(&mut self)  {
         self.pc += 1;
     }
+
+    pub fn set_pc(&mut self, pc: u16)  {
+        self.pc = pc;
+    }
+
+    pub fn get_pc(&self) -> u16  {
+        self.pc
+    }
 }
 
 enum ConditionFlags {
