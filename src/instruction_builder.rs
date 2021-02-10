@@ -16,7 +16,18 @@ pub mod instructions {
     pub fn add_immediate(register: RegisterName, value: u16) -> u16 {
         //will only take 4 bytes of u16 to add
         let r_value = register as u16;
-        (1 << 12) | ((r_value) << 9) | ((r_value) << 6) | 1 << 5 | (value & 0b1111)
+        (1 << 12) | ((r_value) << 9) | ((r_value) << 6) | 1 << 5 | (value & 0b11111)
+    }
+
+    pub fn and_immediate(register: RegisterName, value: u16) -> u16 {
+        //will only take 4 bytes of u16 to add
+        let r_value = register as u16;
+        (0b101 << 12) | ((r_value) << 9) | ((r_value) << 6) | 1 << 5 | (value & 0b11111)
+    }
+
+    pub fn and_register(source1: RegisterName,source2: RegisterName, dest: RegisterName) -> u16 {
+        //will only take 4 bytes of u16 to add
+        (0b101 << 12) | ((dest as u16) << 9) | ((source1 as u16) << 6) | 0 << 5 | (source2 as u16 & 0b111)
     }
 
     pub fn store(register: RegisterName, pc_offset: u16) -> u16 {
