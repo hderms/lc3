@@ -1,4 +1,6 @@
 const MEMORY_SIZE: usize = u16::MAX as usize;
+use util::sign_extend;
+
 use crate::opcodes::Opcodes;
 use crate::registers::{RegisterName, Registers};
 use crate::util;
@@ -28,17 +30,17 @@ impl Machine {
         let opcode: u16 = next_instruction >> 12;
         let maybe_opcode: Option<Opcodes> = num::FromPrimitive::from_u16(opcode);
         match maybe_opcode {
-            // Some(Opcodes::branch) => branch(next_instruction),
+            Some(Opcodes::Branch) => self.branch(next_instruction),
             Some(Opcodes::Add) => self.add(next_instruction),
-            Some(Opcodes::Load )=> self.load(next_instruction),
-            Some(Opcodes::Store )=> self.store(next_instruction),
-            Some(Opcodes::JumpRegister )=> self.jump_register(next_instruction),
-            Some(Opcodes::And )=> self.and(next_instruction),
+            Some(Opcodes::Load) => self.load(next_instruction),
+            Some(Opcodes::Store) => self.store(next_instruction),
+            Some(Opcodes::JumpRegister) => self.jump_register(next_instruction),
+            Some(Opcodes::And) => self.and(next_instruction),
             // Some(Opcodes::loadregister )=> instruction::load_register(),
             // Some(Opcodes::storeregister )=> instruction::store_register(),
             // Some(Opcodes::rti )=> instruction::noop(), //unused
-            // Some(Opcodes::not )=> instruction::not(),
-            Some(Opcodes::LoadIndirect )=> self.load_indirect(next_instruction),
+            Some(Opcodes::Not) => self.not(next_instruction),
+            Some(Opcodes::LoadIndirect) => self.load_indirect(next_instruction),
             // Some(Opcodes::storeindirect )=> instruction::store_indirect(),
             // Some(Opcodes::jump )=> instruction::jump(),
             // Some(Opcodes::reserved )=> instruction::noop(), //unused
@@ -68,26 +70,38 @@ impl Machine {
         let dr = (instruction >> 9) & 0b111;
         let (op1, op2) = Machine::immediate_or_source(&self.registers, instruction);
         let result = (op1.wrapping_add(op2)) as u16;
-         self.registers.update_by_address(dr, result);
+        self.registers
+            .update_by_address_set_condition_flag(dr, result);
     }
 
     fn and(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
         let (op1, op2) = Machine::immediate_or_source(&self.registers, instruction);
         let result = (op1 & op2) as u16;
-        self.registers.update_by_address(dr, result);
+        self.registers
+            .update_by_address_set_condition_flag(dr, result);
     }
 
+    fn branch(&mut self, instruction: u16) {
+        let nzp = (instruction >> 9) & 0b111;
+        let pc_offset = instruction & 0x1FF;
+        let sign_extended_pc_offset = sign_extend(pc_offset, 9);
+        let cond_flag = self.registers.get_cond_flag();
+        let pc = self.registers.get_pc();
+        if cond_flag & nzp > 0 {
+            self.registers.set_pc(pc + sign_extended_pc_offset)
+        }
+    }
 
     fn load_indirect(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
-        let address = self.memory[pointer as usize]; 
+        let address = self.memory[pointer as usize];
         let final_address = self.memory[address as usize];
-        self.registers.update_by_address(dr, final_address);
-        
+        self.registers
+            .update_by_address_set_condition_flag(dr, final_address);
     }
 
     fn load(&mut self, instruction: u16) {
@@ -95,9 +109,9 @@ impl Machine {
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
-        let address = self.memory[pointer as usize]; 
-        self.registers.update_by_address(dr, address);
-        
+        let address = self.memory[pointer as usize];
+        self.registers
+            .update_by_address_set_condition_flag(dr, address);
     }
 
     fn store(&mut self, instruction: u16) {
@@ -106,26 +120,39 @@ impl Machine {
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_by_name(RegisterName::Pc) + sign_extended_pc_offset;
         let register_value = self.registers.get_by_address(sr);
-        self.memory[pointer as usize] = register_value; 
-        
+        self.memory[pointer as usize] = register_value;
     }
 
     fn jump_register(&mut self, instruction: u16) {
-        let mode = instruction >> 11;
-        self.registers.update_by_name(RegisterName::R7, self.registers.get_pc());
+        let mode = (instruction >> 11) & 1;
+        let pc = self.registers.get_pc();
+        self.registers.update_by_name(RegisterName::R7, pc);
         let address = if mode == 1 {
-             util::sign_extend(instruction & 0x7FF, 10)
+            let immediate = instruction & 0x7FF;
+            let sign_extended_offset = util::sign_extend(immediate, 11);
+            pc.wrapping_add(sign_extended_offset)
         } else {
-             let register = (instruction >> 6)  & 0b111;
-             self.registers.get_by_address(register)
+            let register = (instruction >> 6) & 0b111;
+            self.registers.get_by_address(register)
         };
         self.registers.set_pc(address);
+    }
+
+    fn not(&mut self, instruction: u16) {
+        let source = (instruction >> 6) & 0b111;
+        let destination = (instruction >> 9) & 0b111;
+        let register_value = self.registers.get_by_address(source);
+        self.registers
+            .update_by_address_set_condition_flag(destination, !register_value);
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruction_builder::instructions::{add, add_immediate, and_register, and_immediate, decrement, increment, store, load, load_indirect, jump_offset, jump_register};
+    use crate::instruction_builder::instructions::{
+        add, add_immediate, and_immediate, and_register, branch, decrement, increment, jump_offset,
+        jump_register, load, load_indirect, not, store,
+    };
     use crate::registers::RegisterName;
     #[test]
     fn it_can_add_in_immediate_mode() {
@@ -138,7 +165,6 @@ mod tests {
         machine.add(decrement_r1);
         assert_eq!(machine.registers.get_by_name(RegisterName::R1), 2);
     }
-
 
     #[test]
     fn it_can_represent_adding_twos_complement_resulting_in_overflow() {
@@ -168,7 +194,9 @@ mod tests {
     #[test]
     fn it_can_and_in_immediate_mode() {
         let mut machine = Machine::empty().start();
-        machine.registers.update_by_name(RegisterName::R1, 0b11);
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R1, 0b11);
         let and_r1 = and_immediate(RegisterName::R1, 0b1);
         machine.and(and_r1);
         assert_eq!(machine.registers.get_by_name(RegisterName::R1), 1);
@@ -177,9 +205,13 @@ mod tests {
     #[test]
     fn it_can_and_in_register_mode() {
         let mut machine = Machine::empty().start();
-         machine.registers.update_by_name(RegisterName::R1, 0b11);
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R1, 0b11);
 
-        machine.registers.update_by_name(RegisterName::R2, 0b11);
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R2, 0b11);
         let and_r1 = and_register(RegisterName::R1, RegisterName::R2, RegisterName::R3);
         machine.and(and_r1);
         assert_eq!(machine.registers.get_by_name(RegisterName::R3), 0b11);
@@ -226,6 +258,7 @@ mod tests {
         let mut machine = Machine::empty().start();
         machine.registers.set_pc(0x42);
         let pc_before = machine.registers.get_pc();
+        assert_eq!(pc_before, 0x42);
         let jump_immediate_instruction = jump_offset(200);
         machine.jump_register(jump_immediate_instruction);
         let pc_after = machine.registers.get_pc();
@@ -238,13 +271,53 @@ mod tests {
     fn it_can_jump_register_offset() {
         let mut machine = Machine::empty().start();
         machine.registers.set_pc(0x42);
-        machine.registers.update_by_name(RegisterName::R3, 42);
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R3, 42);
         let pc_before = machine.registers.get_pc();
         let jump_register_instruction = jump_register(RegisterName::R3);
         machine.jump_register(jump_register_instruction);
         let pc_after = machine.registers.get_pc();
 
         assert_eq!(machine.registers.get_by_name(RegisterName::R7), pc_before);
-        assert_eq!(pc_after, 0x42 + 42);
+        assert_eq!(pc_after, 42);
+    }
+
+    #[test]
+    fn it_can_not() {
+        let mut machine = Machine::empty().start();
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R3, 0xFF);
+        let not_instruction = not(RegisterName::R3, RegisterName::R4);
+        machine.not(not_instruction);
+        let result = machine.registers.get_by_name(RegisterName::R4);
+
+        assert_eq!(result, 0xFF00);
+    }
+
+    #[test]
+    fn it_can_branch() {
+        let mut machine = Machine::empty().start();
+        let negative_two: i16 = -2;
+        machine
+            .registers
+            .update_by_name_set_condition_flag(RegisterName::R3, negative_two as u16);
+        let pc_before = machine.registers.get_pc();
+        let jump_neg = branch(crate::registers::ConditionFlag::Negative, 3);
+        let jump_zero = branch(crate::registers::ConditionFlag::Zero, 5);
+        let jump_pos = branch(crate::registers::ConditionFlag::Positive, 7);
+        machine.branch(jump_neg);
+        let pc_after = machine.registers.get_pc();
+
+        assert_eq!(pc_before + 3, pc_after);
+        let pc_before = machine.registers.get_pc();
+        machine.branch(jump_zero);
+        let pc_after = machine.registers.get_pc();
+        assert_eq!(pc_before, pc_after);
+
+        machine.branch(jump_pos);
+        let pc_after = machine.registers.get_pc();
+        assert_eq!(pc_before, pc_after);
     }
 }

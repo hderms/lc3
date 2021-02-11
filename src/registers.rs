@@ -41,8 +41,17 @@ impl Registers {
         }
     }
 
-    pub fn update_by_name(&mut self, register_name: RegisterName, register_value: u16)  {
+    pub fn update_by_name_set_condition_flag(
+        &mut self,
+        register_name: RegisterName,
+        register_value: u16,
+    ) {
         let flag = Registers::update_condition_flag(register_value);
+        self.update_by_name(register_name, register_value);
+        self.cond = flag;
+    }
+
+    pub fn update_by_name(&mut self, register_name: RegisterName, register_value: u16) {
         match register_name {
             RegisterName::Pc => self.pc = register_value,
             RegisterName::R0 => self.r0 = register_value,
@@ -55,10 +64,22 @@ impl Registers {
             RegisterName::R7 => self.r7 = register_value,
             RegisterName::Cond => panic!("Cond register should not be set directly"),
         }
-        self.cond = flag;
     }
 
-    pub fn update_by_address(&mut self, register_name: u16, register_value: u16)  {
+    pub fn update_by_address_set_condition_flag(
+        &mut self,
+        register_name: u16,
+        register_value: u16,
+    ) {
+        let register = num::FromPrimitive::from_u16(register_name);
+        match register {
+            Some(value) => self.update_by_name_set_condition_flag(value, register_value),
+            None => panic!("unrecognized register"),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn update_by_address(&mut self, register_name: u16, register_value: u16) {
         let register = num::FromPrimitive::from_u16(register_name);
         match register {
             Some(value) => self.update_by_name(value, register_value),
@@ -89,29 +110,33 @@ impl Registers {
     }
     fn update_condition_flag(register_value: u16) -> u16 {
         let flag = if register_value >> 15 == 1 {
-            ConditionFlags::Negative
+            ConditionFlag::Negative
         } else if register_value == 0 {
-            ConditionFlags::Zero
+            ConditionFlag::Zero
         } else {
-            ConditionFlags::Positive
+            ConditionFlag::Positive
         };
         flag as u16
     }
 
-    pub fn increment_pc(&mut self)  {
+    pub fn get_cond_flag(&self) -> u16 {
+        self.cond
+    }
+
+    pub fn increment_pc(&mut self) {
         self.pc += 1;
     }
 
-    pub fn set_pc(&mut self, pc: u16)  {
+    pub fn set_pc(&mut self, pc: u16) {
         self.pc = pc;
     }
 
-    pub fn get_pc(&self) -> u16  {
+    pub fn get_pc(&self) -> u16 {
         self.pc
     }
 }
 
-enum ConditionFlags {
+pub enum ConditionFlag {
     Positive = 1 << 0,
     Zero = 1 << 1,
     Negative = 1 << 2,
