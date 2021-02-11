@@ -32,7 +32,7 @@ impl Machine {
     }
     pub fn step(&mut self) {
         let pc = self.registers.get_pc();
-        let next_instruction = self.memory[pc as usize];
+        let next_instruction = self.get_memory(pc);
         self.registers.increment_pc();
         let opcode: u16 = next_instruction >> 12;
         let maybe_opcode: Option<Opcodes> = num::FromPrimitive::from_u16(opcode);
@@ -105,8 +105,8 @@ impl Machine {
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
-        let address = self.memory[pointer as usize];
-        let final_address = self.memory[address as usize];
+        let address = self.get_memory(pointer );
+        let final_address = self.get_memory(address);
         self.registers
             .update_by_address_set_condition_flag(dr, final_address);
     }
@@ -116,7 +116,7 @@ impl Machine {
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
-        let address = self.memory[pointer as usize];
+        let address = self.get_memory(pointer);
         self.registers
             .update_by_address_set_condition_flag(dr, address);
     }
@@ -128,6 +128,7 @@ impl Machine {
         let pointer = self.registers.get_by_name(RegisterName::Pc) + sign_extended_pc_offset;
         let register_value = self.registers.get_by_address(sr);
         self.memory[pointer as usize] = register_value;
+        self.write_memory(pointer, register_value);
     }
 
     fn jump_register(&mut self, instruction: u16) {
