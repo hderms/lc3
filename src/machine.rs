@@ -48,12 +48,11 @@ impl Machine {
             Some(Opcodes::Rti) => (), //unused
             Some(Opcodes::Not) => self.not(next_instruction),
             Some(Opcodes::LoadIndirect) => self.load_indirect(next_instruction),
-            // Some(Opcodes::storeindirect )=> instruction::store_indirect(),
-            // Some(Opcodes::jump )=> instruction::jump(),
+            Some(Opcodes::StoreIndirect) => self.store_indirect(next_instruction),
+            Some(Opcodes::Jump) => self.jump(next_instruction),
             Some(Opcodes::Reserved) => (), //unused
-            // Some(Opcodes::loadeffectiveaddress )=> instruction::load_effective_address(),
-            // Some(Opcodes::executetrap )=> instruction::execute_trap(),
-            Some(_) => println!("not implemented yet"),
+            Some(Opcodes::LoadEffectiveAddress) => self.load_effective_address(next_instruction),
+            Some(Opcodes::ExecuteTrap) => self.execute_trap(next_instruction),
             None => panic!("unrecognized opcode"),
         }
     }
@@ -111,6 +110,17 @@ impl Machine {
             .update_by_address_set_condition_flag(dr, final_address);
     }
 
+    fn store_indirect(&mut self, instruction: u16) {
+        let sr = (instruction >> 9) & 0b111;
+        let pc_offset_9 = instruction & 0x1FF;
+        let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
+        let pointer = self.registers.get_pc() + sign_extended_pc_offset;
+        let address = self.get_memory(pointer);
+        let value = self.registers.get_by_address(sr);
+
+        self.write_memory(address, value);
+    }
+
     fn load(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
         let pc_offset_9 = instruction & 0x1FF;
@@ -146,6 +156,18 @@ impl Machine {
         self.registers.set_pc(address);
     }
 
+    fn jump(&mut self, instruction: u16) {
+        let base_r = (instruction >> 6) & 0b111;
+        let address = if base_r == 0b111 {
+            //return
+            self.registers.get_by_name(RegisterName::R7)
+        } else {
+            //jump
+            self.registers.get_by_address(base_r)
+        };
+        self.registers.set_pc(address)
+    }
+
     fn not(&mut self, instruction: u16) {
         let source = (instruction >> 6) & 0b111;
         let destination = (instruction >> 9) & 0b111;
@@ -173,6 +195,24 @@ impl Machine {
         let address = base_address.wrapping_add(offset_6);
         let source_value = self.registers.get_by_address(sr);
         self.write_memory(address, source_value);
+    }
+
+    fn load_effective_address(&mut self, instruction: u16) {
+        let pc = self.registers.get_pc();
+        let trap_vect_8 = sign_extend(instruction & 0xFF, 8);
+        self.registers.update_by_name(RegisterName::R7, pc);
+        let address = self.get_memory(trap_vect_8);
+        self.registers.set_pc(address)
+    }
+
+    fn execute_trap(&mut self, instruction: u16) {
+        let dr = (instruction >> 9) & 0b111;
+        let pc_offset_9 = sign_extend(instruction & 0x1FF, 9);
+        let pc = self.registers.get_pc();
+        let address = pc.wrapping_add(pc_offset_9);
+        let cell = self.get_memory(address);
+        self.registers
+            .update_by_address_set_condition_flag(dr, cell);
     }
 }
 #[cfg(test)]
