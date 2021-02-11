@@ -1,5 +1,5 @@
 extern crate num;
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Registers {
     pc: u16,
     cond: u16,
@@ -41,26 +41,24 @@ impl Registers {
         }
     }
 
-    pub fn update_by_name(self, register_name: RegisterName, register_value: u16) -> Registers {
+    pub fn update_by_name(&mut self, register_name: RegisterName, register_value: u16)  {
         let flag = Registers::update_condition_flag(register_value);
-        let mut copied = self;
         match register_name {
-            RegisterName::Pc => copied.pc = register_value,
-            RegisterName::R0 => copied.r0 = register_value,
-            RegisterName::R1 => copied.r1 = register_value,
-            RegisterName::R2 => copied.r2 = register_value,
-            RegisterName::R3 => copied.r3 = register_value,
-            RegisterName::R4 => copied.r4 = register_value,
-            RegisterName::R5 => copied.r5 = register_value,
-            RegisterName::R6 => copied.r6 = register_value,
-            RegisterName::R7 => copied.r7 = register_value,
+            RegisterName::Pc => self.pc = register_value,
+            RegisterName::R0 => self.r0 = register_value,
+            RegisterName::R1 => self.r1 = register_value,
+            RegisterName::R2 => self.r2 = register_value,
+            RegisterName::R3 => self.r3 = register_value,
+            RegisterName::R4 => self.r4 = register_value,
+            RegisterName::R5 => self.r5 = register_value,
+            RegisterName::R6 => self.r6 = register_value,
+            RegisterName::R7 => self.r7 = register_value,
             RegisterName::Cond => panic!("Cond register should not be set directly"),
         }
-        copied.cond = flag;
-        copied
+        self.cond = flag;
     }
 
-    pub fn update_by_address(self, register_name: u16, register_value: u16) -> Registers {
+    pub fn update_by_address(&mut self, register_name: u16, register_value: u16)  {
         let register = num::FromPrimitive::from_u16(register_name);
         match register {
             Some(value) => self.update_by_name(value, register_value),
@@ -68,14 +66,14 @@ impl Registers {
         }
     }
 
-    pub fn get_by_address(self, register_name: u16) -> u16 {
+    pub fn get_by_address(&self, register_name: u16) -> u16 {
         let register = num::FromPrimitive::from_u16(register_name);
         match register {
             Some(value) => self.get_by_name(value),
             None => panic!("unrecognized register"),
         }
     }
-    pub fn get_by_name(self, register_name: RegisterName) -> u16 {
+    pub fn get_by_name(&self, register_name: RegisterName) -> u16 {
         match register_name {
             RegisterName::Pc => self.pc,
             RegisterName::Cond => self.cond,

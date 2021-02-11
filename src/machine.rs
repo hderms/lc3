@@ -22,7 +22,8 @@ impl Machine {
         self
     }
     pub fn step(&mut self) {
-        let next_instruction = self.memory[self.registers.get_by_name(RegisterName::Pc) as usize];
+        let pc = self.registers.get_pc();
+        let next_instruction = self.memory[pc as usize];
         self.registers.increment_pc();
         let opcode: u16 = next_instruction >> 12;
         let maybe_opcode: Option<Opcodes> = num::FromPrimitive::from_u16(opcode);
@@ -47,7 +48,7 @@ impl Machine {
             None => panic!("unrecognized opcode"),
         }
     }
-    fn immediate_or_source(registers: Registers, instruction: u16) -> (u16, u16) {
+    fn immediate_or_source(registers: &Registers, instruction: u16) -> (u16, u16) {
         let sr = (instruction >> 6) & 0b111;
         let mode = (instruction >> 5) & 0b1;
         let op1 = registers.get_by_address(sr);
@@ -65,16 +66,16 @@ impl Machine {
 
     fn add(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
-        let (op1, op2) = Machine::immediate_or_source(self.registers, instruction);
+        let (op1, op2) = Machine::immediate_or_source(&self.registers, instruction);
         let result = (op1.wrapping_add(op2)) as u16;
-        self.registers = self.registers.update_by_address(dr, result);
+         self.registers.update_by_address(dr, result);
     }
 
     fn and(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
-        let (op1, op2) = Machine::immediate_or_source(self.registers, instruction);
+        let (op1, op2) = Machine::immediate_or_source(&self.registers, instruction);
         let result = (op1 & op2) as u16;
-        self.registers = self.registers.update_by_address(dr, result);
+        self.registers.update_by_address(dr, result);
     }
 
 
@@ -85,7 +86,7 @@ impl Machine {
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
         let address = self.memory[pointer as usize]; 
         let final_address = self.memory[address as usize];
-        self.registers = self.registers.update_by_address(dr, final_address);
+        self.registers.update_by_address(dr, final_address);
         
     }
 
@@ -95,7 +96,7 @@ impl Machine {
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
         let address = self.memory[pointer as usize]; 
-        self.registers = self.registers.update_by_address(dr, address);
+        self.registers.update_by_address(dr, address);
         
     }
 
@@ -124,7 +125,7 @@ impl Machine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruction_builder::instructions::{add, add_immediate, and_register, and_immediate, decrement, increment, store, load, load_indirect};
+    use crate::instruction_builder::instructions::{add, add_immediate, and_register, and_immediate, decrement, increment, store, load, load_indirect, jump_offset, jump_register};
     use crate::registers::RegisterName;
     #[test]
     fn it_can_add_in_immediate_mode() {
@@ -167,7 +168,7 @@ mod tests {
     #[test]
     fn it_can_and_in_immediate_mode() {
         let mut machine = Machine::empty().start();
-        machine.registers = machine.registers.update_by_name(RegisterName::R1, 0b11);
+        machine.registers.update_by_name(RegisterName::R1, 0b11);
         let and_r1 = and_immediate(RegisterName::R1, 0b1);
         machine.and(and_r1);
         assert_eq!(machine.registers.get_by_name(RegisterName::R1), 1);
@@ -176,9 +177,9 @@ mod tests {
     #[test]
     fn it_can_and_in_register_mode() {
         let mut machine = Machine::empty().start();
-        machine.registers = machine.registers.update_by_name(RegisterName::R1, 0b11);
+         machine.registers.update_by_name(RegisterName::R1, 0b11);
 
-        machine.registers = machine.registers.update_by_name(RegisterName::R2, 0b11);
+        machine.registers.update_by_name(RegisterName::R2, 0b11);
         let and_r1 = and_register(RegisterName::R1, RegisterName::R2, RegisterName::R3);
         machine.and(and_r1);
         assert_eq!(machine.registers.get_by_name(RegisterName::R3), 0b11);
@@ -218,5 +219,32 @@ mod tests {
         machine.load_indirect(load_memory_address);
 
         assert_eq!(machine.registers.get_by_name(RegisterName::R1), 99);
+    }
+
+    #[test]
+    fn it_can_jump_register_immediate() {
+        let mut machine = Machine::empty().start();
+        machine.registers.set_pc(0x42);
+        let pc_before = machine.registers.get_pc();
+        let jump_immediate_instruction = jump_offset(200);
+        machine.jump_register(jump_immediate_instruction);
+        let pc_after = machine.registers.get_pc();
+
+        assert_eq!(machine.registers.get_by_name(RegisterName::R7), pc_before);
+        assert_eq!(pc_after, 0x42 + 200);
+    }
+
+    #[test]
+    fn it_can_jump_register_offset() {
+        let mut machine = Machine::empty().start();
+        machine.registers.set_pc(0x42);
+        machine.registers.update_by_name(RegisterName::R3, 42);
+        let pc_before = machine.registers.get_pc();
+        let jump_register_instruction = jump_register(RegisterName::R3);
+        machine.jump_register(jump_register_instruction);
+        let pc_after = machine.registers.get_pc();
+
+        assert_eq!(machine.registers.get_by_name(RegisterName::R7), pc_before);
+        assert_eq!(pc_after, 0x42 + 42);
     }
 }
