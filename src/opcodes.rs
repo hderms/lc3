@@ -1,19 +1,19 @@
 #[derive(FromPrimitive)]
 pub enum Opcodes {
-    Branch = 0,
-    Add = 1,
-    Load = 2,
-    Store = 3,
-    JumpRegister = 4,
-    And = 5,
-    LoadRegister = 6,
-    StoreRegister = 7,
-    Rti = 8, //Unused
-    Not = 9,
-    LoadIndirect = 10,
-    StoreIndirect = 11,
-    Jump = 12,
-    Reserved = 13, //Unused
-    LoadEffectiveAddress = 14,
-    ExecuteTrap = 15,
+    Branch = 0,                //BR
+    Add = 1,                   //ADD
+    Load = 2,                  //LD
+    Store = 3,                 //ST
+    JumpRegister = 4,          //JSR
+    And = 5,                   //AND
+    LoadRegister = 6,          //LDR
+    StoreRegister = 7,         //STR
+    Rti = 8,                   //RTI (Unused)
+    Not = 9,                   //NOT
+    LoadIndirect = 10,         //LDI
+    StoreIndirect = 11,        //STI
+    Jump = 12,                 //JMP
+    Reserved = 13,             //RES (Unused)
+    LoadEffectiveAddress = 14, //LEA
+    ExecuteTrap = 15,          //TRAP
 }

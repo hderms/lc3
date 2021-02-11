@@ -70,4 +70,12 @@ pub mod instructions {
     pub fn branch(condition_flag: ConditionFlag, pc_offset: u16) -> u16 {
         (condition_flag as u16) << 9 | (pc_offset & 0x1FF)
     }
+
+    pub fn load_register(base_register: RegisterName,  offset: u16,  destination: RegisterName) -> u16 {
+        (0b110 << 12) | (destination as u16) << 9 | (base_register as u16) << 6 | (offset & 0b111111)
+    }
+
+    pub fn store_register(base_register: RegisterName,  offset: u16,  source: RegisterName) -> u16 {
+        (0b110 << 12) | (source as u16) << 9 | (base_register as u16) << 6 | (offset & 0b111111)
+    }
 }
