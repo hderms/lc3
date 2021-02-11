@@ -28,7 +28,7 @@ impl Machine {
     }
 
     pub fn get_memory(&mut self, address: u16) -> u16 {
-        self.memory[address as usize] 
+        self.memory[address as usize]
     }
     pub fn step(&mut self) {
         let pc = self.registers.get_pc();
@@ -43,14 +43,14 @@ impl Machine {
             Some(Opcodes::Store) => self.store(next_instruction),
             Some(Opcodes::JumpRegister) => self.jump_register(next_instruction),
             Some(Opcodes::And) => self.and(next_instruction),
-            Some(Opcodes::LoadRegister )=> self.load_register(next_instruction),
-            Some(Opcodes::StoreRegister )=> self.store_register(next_instruction),
-            Some(Opcodes::Rti )=> (), //unused
+            Some(Opcodes::LoadRegister) => self.load_register(next_instruction),
+            Some(Opcodes::StoreRegister) => self.store_register(next_instruction),
+            Some(Opcodes::Rti) => (), //unused
             Some(Opcodes::Not) => self.not(next_instruction),
             Some(Opcodes::LoadIndirect) => self.load_indirect(next_instruction),
             // Some(Opcodes::storeindirect )=> instruction::store_indirect(),
             // Some(Opcodes::jump )=> instruction::jump(),
-            Some(Opcodes::Reserved )=> (), //unused
+            Some(Opcodes::Reserved) => (), //unused
             // Some(Opcodes::loadeffectiveaddress )=> instruction::load_effective_address(),
             // Some(Opcodes::executetrap )=> instruction::execute_trap(),
             Some(_) => println!("not implemented yet"),
@@ -105,7 +105,7 @@ impl Machine {
         let pc_offset_9 = instruction & 0x1FF;
         let sign_extended_pc_offset = util::sign_extend(pc_offset_9, 9);
         let pointer = self.registers.get_pc() + sign_extended_pc_offset;
-        let address = self.get_memory(pointer );
+        let address = self.get_memory(pointer);
         let final_address = self.get_memory(address);
         self.registers
             .update_by_address_set_condition_flag(dr, final_address);
@@ -157,17 +157,18 @@ impl Machine {
     fn load_register(&mut self, instruction: u16) {
         let dr = (instruction >> 9) & 0b111;
         let base_r = (instruction >> 6) & 0b111;
-        let offset_6 =  sign_extend(instruction & 0x3F, 6); 
+        let offset_6 = sign_extend(instruction & 0x3F, 6);
         let base_address = self.registers.get_by_address(base_r);
         let address = offset_6.wrapping_add(base_address);
         let cell = self.get_memory(address);
-        self.registers.update_by_address_set_condition_flag(dr, cell);
+        self.registers
+            .update_by_address_set_condition_flag(dr, cell);
     }
 
     fn store_register(&mut self, instruction: u16) {
         let sr = (instruction >> 9) & 0b111;
         let base_r = (instruction >> 6) & 0b111;
-        let offset_6 =  sign_extend(instruction & 0x3F, 6); 
+        let offset_6 = sign_extend(instruction & 0x3F, 6);
         let base_address = self.registers.get_by_address(base_r);
         let address = base_address.wrapping_add(offset_6);
         let source_value = self.registers.get_by_address(sr);
@@ -179,7 +180,7 @@ mod tests {
     use super::*;
     use crate::instruction_builder::instructions::{
         add, add_immediate, and_immediate, and_register, branch, decrement, increment, jump_offset,
-        jump_register, load, load_indirect, not, store, load_register, store_register
+        jump_register, load, load_indirect, load_register, not, store, store_register,
     };
     use crate::registers::RegisterName;
     #[test]
@@ -354,7 +355,7 @@ mod tests {
         let mut machine = Machine::empty().start();
         machine
             .registers
-            .update_by_name_set_condition_flag(RegisterName::R1, 10 ); //base register
+            .update_by_name_set_condition_flag(RegisterName::R1, 10); //base register
 
         machine.write_memory(9, 99);
         let load_register_instruction = load_register(RegisterName::R1, 0b111111, RegisterName::R2);
@@ -366,9 +367,7 @@ mod tests {
     #[test]
     fn it_can_store_register() {
         let mut machine = Machine::empty().start();
-        machine
-            .registers
-            .update_by_name(RegisterName::R1, 10 ); //base register
+        machine.registers.update_by_name(RegisterName::R1, 10); //base register
 
         machine.registers.update_by_name(RegisterName::R2, 42);
         let store_register_instruction = store_register(RegisterName::R1, 1, RegisterName::R2);
