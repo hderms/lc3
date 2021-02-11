@@ -52,4 +52,12 @@ pub mod instructions {
         (1 << 12) | ((dest as u16) << 9) | ((source_1 as u16) << 6) | 0 << 5 | source_2 as u16
     }
 
+    pub fn jump_offset(offset: u16) -> u16 {
+        (0b0100 << 12) | 1 << 10 | offset & 0x7FF
+    }
+
+    pub fn jump_register(register: RegisterName) -> u16 {
+        (0b0100 << 12) | 0 << 10 | ((register as u16) & 0b111) << 5
+    }
+
 }
